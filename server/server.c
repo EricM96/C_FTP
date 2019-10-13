@@ -5,11 +5,13 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
+#include <unistd.h> 
+#include <strings.h>
+#include <dirent.h>
 
-// helpful macros
 #define BUFFER_SIZE 256
 #define MAX_MSG_SIZE 255
-#define NUM_CONNECTIONS 1
+#define NUM_CONNECTIONS 5
 
 void error(char *msg)
 {
@@ -19,8 +21,10 @@ void error(char *msg)
 
 void on_connect(int socket_id)
 {
-    int n;
+    int n, dir_count = 0;
     char buffer[BUFFER_SIZE];
+    DIR *dir = opendir("./files");
+    struct dirent *fname;
 
     while (1)
     {
@@ -29,26 +33,49 @@ void on_connect(int socket_id)
         if (n < 0)
             error("ERROR reading from socket");
         printf("Message from %i: %s", socket_id, buffer);
-
-        printf("Please enter the message: ");
-        bzero(buffer, BUFFER_SIZE);
-        fgets(buffer, MAX_MSG_SIZE, stdin);
+        if (strcmp(buffer, "ls server\n\n"))
+        {
+            printf("in if\n");
+            bzero(buffer, BUFFER_SIZE);
+            while ((fname = readdir(dir)) != NULL)
+            {
+                if (strcmp(fname->d_name, ".") == 0 || strcmp(fname->d_name, "..") == 0) 
+                {
+                    printf("Ignoring: %s\n", fname->d_name);
+                }
+                else if (dir_count == 0)
+                {
+                    dir_count++; 
+                    printf("%s\n", fname->d_name);
+                    strcpy(buffer, fname->d_name);
+                    strcat(buffer, "\n");
+                }
+                else
+                {
+                    dir_count++;
+                    printf("%s\n", fname->d_name);
+                    strcat(buffer, fname->d_name);
+                    strcat(buffer, "\n");
+                } 
+            }   
+        }
+        printf("in else\n");
+        printf("Buffer: %s\n", buffer);
         n = write(socket_id, buffer, strlen(buffer));
         if (n < 0)
             error("ERROR writing to socket");
+
+        dir_count = 0;
+        rewinddir(dir);
     }
 }
 
 int main(int argc, char *argv[])
 {
-    int sockfd, newsockfd, portno, clilen, pid;
+    int sockfd, newsockfd, pid;
+    const int portno = 12000;
+    socklen_t clilen; 
     struct sockaddr_in serv_addr, cli_addr;
-
-    if (argc < 2)
-    {
-        fprintf(stderr, "ERROR, no port provided\n");
-        exit(1);
-    }
 
     sockfd = socket(AF_INET, SOCK_STREAM, 0);
     if (sockfd < 0)
@@ -57,7 +84,6 @@ int main(int argc, char *argv[])
     }
 
     bzero((char *)&serv_addr, sizeof(serv_addr)); // intilializes to zeros
-    portno = atoi(argv[1]);
     serv_addr.sin_family = AF_INET;
     serv_addr.sin_addr.s_addr = INADDR_ANY;
     serv_addr.sin_port = htons(portno); // htons converts portno to network byte order
@@ -77,6 +103,7 @@ int main(int argc, char *argv[])
             error("ERROR on fork");
         if (pid == 0)
         {
+            printf("pid: %i\n", pid); 
             close(sockfd);
             on_connect(newsockfd);
             exit(0);

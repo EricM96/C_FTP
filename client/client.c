@@ -4,6 +4,9 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <netdb.h>
+#include <unistd.h>
+#include <strings.h>
+#include <dirent.h>
 
 #define BUFFER_SIZE 256
 #define MAX_MSG_SIZE 255
@@ -52,7 +55,7 @@ int main(int argc, char *argv[])
     }
     while (1)
     {
-        printf("Please enter the message: ");
+        printf(">>");
         bzero(buffer, BUFFER_SIZE);
         fgets(buffer, MAX_MSG_SIZE, stdin);
         n = write(sockfd, buffer, strlen(buffer));

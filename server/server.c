@@ -23,6 +23,7 @@ void on_connect(int socket_id)
 {
     int n, dir_count = 0;
     char buffer[BUFFER_SIZE];
+    char sdir_count[5]; 
     DIR *dir = opendir("./files");
     struct dirent *fname;
 
@@ -31,36 +32,33 @@ void on_connect(int socket_id)
         bzero(buffer, MAX_MSG_SIZE);
         n = read(socket_id, buffer, MAX_MSG_SIZE);
         if (n < 0)
-            error("ERROR reading from socket");
-        printf("Message from %i: %s", socket_id, buffer);
-        if (strcmp(buffer, "ls server\n\n"))
+            error("ERROR reading from socket");\
+        if (strcmp(buffer, "ls server\n") == 0)
         {
-            printf("in if\n");
             bzero(buffer, BUFFER_SIZE);
             while ((fname = readdir(dir)) != NULL)
             {
                 if (strcmp(fname->d_name, ".") == 0 || strcmp(fname->d_name, "..") == 0) 
                 {
-                    printf("Ignoring: %s\n", fname->d_name);
+                    continue;
                 }
                 else if (dir_count == 0)
                 {
                     dir_count++; 
-                    printf("%s\n", fname->d_name);
-                    strcpy(buffer, fname->d_name);
+                    strcpy(buffer, "1. ");
+                    strcat(buffer, fname->d_name);
                     strcat(buffer, "\n");
                 }
                 else
                 {
                     dir_count++;
-                    printf("%s\n", fname->d_name);
+                    sprintf(sdir_count, "%d", dir_count);
+                    strcat(buffer, strcat(sdir_count, ". "));
                     strcat(buffer, fname->d_name);
                     strcat(buffer, "\n");
                 } 
             }   
         }
-        printf("in else\n");
-        printf("Buffer: %s\n", buffer);
         n = write(socket_id, buffer, strlen(buffer));
         if (n < 0)
             error("ERROR writing to socket");

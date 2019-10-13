@@ -19,11 +19,11 @@ void error(char *msg)
 
 int main(int argc, char *argv[])
 {
-    int sockfd, portno, n;
-
+    int sockfd, portno, n, dir_count = 0;
     struct sockaddr_in serv_addr;
     struct hostent *server;
-
+    DIR *dir = opendir("./files");
+    struct dirent *fname;
     char buffer[BUFFER_SIZE];
 
     if (argc < 3)
@@ -58,14 +58,35 @@ int main(int argc, char *argv[])
         printf(">>");
         bzero(buffer, BUFFER_SIZE);
         fgets(buffer, MAX_MSG_SIZE, stdin);
-        n = write(sockfd, buffer, strlen(buffer));
-        if (n < 0)
-            error("ERROR writing to socket");
-        bzero(buffer, BUFFER_SIZE);
-        n = read(sockfd, buffer, MAX_MSG_SIZE);
-        if (n < 0)
-            error("ERROR reading from socket");
-        printf("%s\n", buffer);
+
+        if (strcmp(buffer, "ls client\n") == 0)
+        {
+            while ((fname = readdir(dir)) != NULL)
+            {
+                if (strcmp(fname->d_name, ".") == 0 || strcmp(fname->d_name, "..") == 0)
+                {
+                    continue;
+                }
+                else
+                {
+                    dir_count++;
+                    printf("%i. %s\n", dir_count, fname->d_name);
+                }
+            }
+            dir_count = 0;
+            rewinddir(dir);
+        }
+        else
+        {
+            n = write(sockfd, buffer, strlen(buffer));
+            if (n < 0)
+                error("ERROR writing to socket");
+            bzero(buffer, BUFFER_SIZE);
+            n = read(sockfd, buffer, MAX_MSG_SIZE);
+            if (n < 0)
+                error("ERROR reading from socket");
+            printf("%s\n", buffer);
+        }
     }
     return 0;
 }

@@ -8,6 +8,7 @@
 #include <unistd.h> 
 #include <strings.h>
 #include <dirent.h>
+#include <stdbool.h>
 
 #define BUFFER_SIZE 256
 #define MAX_MSG_SIZE 255
@@ -21,9 +22,14 @@ void error(char *msg)
 
 void on_connect(int socket_id)
 {
-    int n, dir_count = 0;
+    int n, findex, fsize, dir_count = 0;
     char buffer[BUFFER_SIZE];
-    char sdir_count[5]; 
+    char sdir_count[5];
+    char *s_findex;
+    char s_fsize[BUFFER_SIZE];
+    char file_name[BUFFER_SIZE];
+    bool found_file = false;
+    FILE *fin; 
     DIR *dir = opendir("./files");
     struct dirent *fname;
 
@@ -32,7 +38,8 @@ void on_connect(int socket_id)
         bzero(buffer, MAX_MSG_SIZE);
         n = read(socket_id, buffer, MAX_MSG_SIZE);
         if (n < 0)
-            error("ERROR reading from socket");\
+            error("ERROR reading from socket");
+        
         if (strcmp(buffer, "ls server\n") == 0)
         {
             bzero(buffer, BUFFER_SIZE);
@@ -59,6 +66,83 @@ void on_connect(int socket_id)
                 } 
             }   
         }
+        else if (buffer[0] == 'd')
+        {
+            s_findex = strtok(buffer, " "); 
+            s_findex = strtok(NULL, " ");
+            findex = atoi(s_findex);
+
+            printf("Looking for file: %d\n", findex);
+
+            bzero(buffer, BUFFER_SIZE);
+            while ((fname = readdir(dir)) != NULL)
+            {
+                if (strcmp(fname->d_name, ".") != 0 && strcmp(fname->d_name, "..") != 0) 
+                {
+                    dir_count++;
+                    if (dir_count == findex)
+                    {
+                        found_file = true;
+                        strcpy(file_name, "files/");
+                        strcat(file_name, fname->d_name);
+                
+                        fin = fopen(file_name, "r"); 
+                        if (fin == NULL)
+                            strcpy(buffer, "ERROR retrieving file");
+
+                        else
+                        {
+                            printf("File opened\n");
+
+                            fseek(fin, 0, SEEK_END);
+                            fsize = ftell(fin) + 1;
+                            fclose(fin);
+                        
+                            printf("File size %d\n", fsize);
+                            sprintf(s_fsize, "%d", fsize);
+
+                            strcpy(buffer, "file_size:");
+                            strcat(buffer, s_fsize);
+                            strcat(buffer, ",");
+                            strcat(buffer, "file_name:");
+                            strcat(buffer, fname->d_name); 
+
+                            // printf("file_size: %s\nfile_name: %s\n", s_fsize, fname->d_name);
+
+                            // n = write(socket_id, buffer, strlen(buffer));
+                            // if (n < 0)
+                            //     error("ERROR writing to socket");
+
+                            // bzero(buffer, BUFFER_SIZE);
+                            // n = read(socket_id, buffer, MAX_MSG_SIZE);
+                            // if (n < 0)
+                            //     error("ERROR reading from socket");
+
+                            // if (strcmp(buffer, "ready for file\n") == 0)
+                            // {
+                            //     printf("About to upload file");
+                            // }
+                        }
+                        break;
+                    }
+                }
+            }
+
+            if (!found_file)
+            {
+                strcpy(buffer, "ERROR retrieving file");
+            }
+            else
+            {
+                found_file = false;
+            }
+            
+
+        } else
+        {
+            printf("First char: %c\n", buffer[0]);
+        }
+        printf("Sending message: %s\n", buffer);
         n = write(socket_id, buffer, strlen(buffer));
         if (n < 0)
             error("ERROR writing to socket");

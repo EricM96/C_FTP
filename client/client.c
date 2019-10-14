@@ -19,7 +19,9 @@ void error(char *msg)
 
 int main(int argc, char *argv[])
 {
-    int sockfd, portno, n, dir_count = 0;
+    int sockfd, portno, n, fsize, dir_count = 0;
+    char *d_fname;
+    char *s_fsize;
     struct sockaddr_in serv_addr;
     struct hostent *server;
     DIR *dir = opendir("./files");
@@ -75,6 +77,36 @@ int main(int argc, char *argv[])
             }
             dir_count = 0;
             rewinddir(dir);
+        }
+        else if (buffer[0] == 'd')
+        {
+            n = write(sockfd, buffer, strlen(buffer));
+            if (n < 0)
+                error("ERROR writing to socket");
+            bzero(buffer, BUFFER_SIZE);
+            n = read(sockfd, buffer, MAX_MSG_SIZE);
+            if (n < 0)
+                error("ERROR reading from socket");
+
+            // If server failed to find file, force the next iteration
+            if (strcmp(buffer, "ERROR retrieving file") == 0)
+            {
+                printf("%s\n", buffer);
+                continue;
+            }
+
+            s_fsize = strtok(buffer, ",");
+            d_fname = strtok(NULL, ",");
+            
+            s_fsize = strtok(s_fsize, ":"); 
+            s_fsize = strtok(NULL, ":");
+
+            d_fname = strtok(d_fname, ":");
+            d_fname = strtok(NULL, ":");
+
+            printf("file size: %s\nfile name: %s\n", s_fsize, d_fname);
+
+            
         }
         else
         {

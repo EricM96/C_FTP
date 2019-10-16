@@ -107,21 +107,19 @@ void on_connect(int socket_id)
                             strcat(buffer, "file_name:");
                             strcat(buffer, fname->d_name); 
 
-                            // printf("file_size: %s\nfile_name: %s\n", s_fsize, fname->d_name);
+                            n = write(socket_id, buffer, strlen(buffer));
+                            if (n < 0)
+                                error("ERROR writing to socket");
 
-                            // n = write(socket_id, buffer, strlen(buffer));
-                            // if (n < 0)
-                            //     error("ERROR writing to socket");
+                            bzero(buffer, BUFFER_SIZE);
+                            n = read(socket_id, buffer, MAX_MSG_SIZE);
+                            if (n < 0)
+                                error("ERROR reading from socket");
 
-                            // bzero(buffer, BUFFER_SIZE);
-                            // n = read(socket_id, buffer, MAX_MSG_SIZE);
-                            // if (n < 0)
-                            //     error("ERROR reading from socket");
-
-                            // if (strcmp(buffer, "ready for file\n") == 0)
-                            // {
-                            //     printf("About to upload file");
-                            // }
+                            if (strcmp(buffer, "ready for file") == 0)
+                            {
+                                printf("About to upload file\n");
+                            }
                         }
                         break;
                     }

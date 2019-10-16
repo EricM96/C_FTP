@@ -106,7 +106,13 @@ int main(int argc, char *argv[])
 
             printf("file size: %s\nfile name: %s\n", s_fsize, d_fname);
 
-            
+            bzero(buffer, BUFFER_SIZE);
+            strcpy(buffer, "ready for file");
+
+            n = write(sockfd, buffer, strlen(buffer));
+            if (n < 0)
+                error("ERROR writing to socket");
+
         }
         else
         {

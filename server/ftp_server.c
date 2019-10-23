@@ -2,6 +2,7 @@
    takes the port number as an argument */
 #include <stdio.h>
 #include <stdlib.h>
+#include<string.h>
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
@@ -28,6 +29,7 @@ void on_connect(int socket_id)
     char *s_findex;
     char s_fsize[BUFFER_SIZE];
     char file_name[BUFFER_SIZE];
+    char *file_buffer; 
     bool found_file = false;
     FILE *fin; 
     DIR *dir = opendir("./files");
@@ -40,6 +42,7 @@ void on_connect(int socket_id)
         if (n < 0)
             error("ERROR reading from socket");
         
+        // Code for ls command
         if (strcmp(buffer, "ls server\n") == 0)
         {
             bzero(buffer, BUFFER_SIZE);
@@ -66,8 +69,11 @@ void on_connect(int socket_id)
                 } 
             }   
         }
+
+        // Code for download command
         else if (buffer[0] == 'd')
         {
+            // Extract file index from message 
             s_findex = strtok(buffer, " "); 
             s_findex = strtok(NULL, " ");
             findex = atoi(s_findex);
@@ -75,6 +81,8 @@ void on_connect(int socket_id)
             printf("Looking for file: %d\n", findex);
 
             bzero(buffer, BUFFER_SIZE);
+
+            // Search for file matching index
             while ((fname = readdir(dir)) != NULL)
             {
                 if (strcmp(fname->d_name, ".") != 0 && strcmp(fname->d_name, "..") != 0) 
@@ -92,11 +100,10 @@ void on_connect(int socket_id)
 
                         else
                         {
-                            printf("File opened\n");
-
+                            // Find size of file in bytes
                             fseek(fin, 0, SEEK_END);
                             fsize = ftell(fin) + 1;
-                            fclose(fin);
+                            rewind(fin); 
                         
                             printf("File size %d\n", fsize);
                             sprintf(s_fsize, "%d", fsize);
@@ -107,6 +114,7 @@ void on_connect(int socket_id)
                             strcat(buffer, "file_name:");
                             strcat(buffer, fname->d_name); 
 
+                            // Send client file name and file size 
                             n = write(socket_id, buffer, strlen(buffer));
                             if (n < 0)
                                 error("ERROR writing to socket");
@@ -116,9 +124,24 @@ void on_connect(int socket_id)
                             if (n < 0)
                                 error("ERROR reading from socket");
 
+                            // If client indicates it is ready for the file
                             if (strcmp(buffer, "ready for file") == 0)
                             {
+                                // Realloc file_buffer to be proper size 
+                                file_buffer = calloc(fsize, sizeof(char)); 
+                                n = fread(file_buffer, sizeof(char), fsize, fin);
+                                if (n < 0)
+                                    error("ERROR reading from file");
+                                fclose(fin); 
+
+                                // Send file 
                                 printf("About to upload file\n");
+                                n = write(socket_id, file_buffer, fsize);
+                                if (n < 0)
+                                    error("ERROR writing file to socket");
+
+                                // Free memory for file_buffer
+                                free(file_buffer);
                             }
                         }
                         break;
@@ -159,14 +182,14 @@ int main(int argc, char *argv[])
 
     sockfd = socket(AF_INET, SOCK_STREAM, 0);
     if (sockfd < 0)
-    { // if opening the socket fails
+    { 
         error("ERROR opening socket");
     }
 
-    bzero((char *)&serv_addr, sizeof(serv_addr)); // intilializes to zeros
+    bzero((char *)&serv_addr, sizeof(serv_addr)); 
     serv_addr.sin_family = AF_INET;
     serv_addr.sin_addr.s_addr = INADDR_ANY;
-    serv_addr.sin_port = htons(portno); // htons converts portno to network byte order
+    serv_addr.sin_port = htons(portno); 
     if (bind(sockfd, (struct sockaddr *)&serv_addr, sizeof(serv_addr)) < 0)
     {
         error("ERROR on binding");
@@ -190,6 +213,6 @@ int main(int argc, char *argv[])
         }
         else
             close(newsockfd);
-    } // end while
+    } 
     return 0;
 }

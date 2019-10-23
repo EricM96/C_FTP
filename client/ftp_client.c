@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
@@ -27,6 +28,10 @@ int main(int argc, char *argv[])
     DIR *dir = opendir("./files");
     struct dirent *fname;
     char buffer[BUFFER_SIZE];
+    char *file_buffer; 
+    char fout_name_temp[BUFFER_SIZE];
+    char fout_name[BUFFER_SIZE];
+    FILE *fout; 
 
     if (argc < 3)
     {
@@ -113,6 +118,32 @@ int main(int argc, char *argv[])
             if (n < 0)
                 error("ERROR writing to socket");
 
+            fsize = atoi(s_fsize);
+            file_buffer = malloc(fsize + 1);
+
+            n = read(sockfd, file_buffer, MAX_MSG_SIZE);
+            if (n < 0)
+                error("ERROR reading file from socket");
+
+            printf("\n%s\n", file_buffer);
+            
+            bzero(fout_name_temp, BUFFER_SIZE);
+            bzero(fout_name, BUFFER_SIZE); 
+            strcpy(fout_name_temp, d_fname);
+            strcpy(fout_name, "files/");
+            strcat(fout_name, fout_name_temp);
+
+            printf("writing to file: %s\n", d_fname);
+
+            fout = fopen(fout_name, "w"); 
+            if (fout) { fputs(file_buffer, fout); }
+            else { error("ERROR writing to file"); }
+
+            fclose(fout); 
+            bzero(fout_name, BUFFER_SIZE); 
+            free(file_buffer);
+
+            continue; 
         }
         else
         {

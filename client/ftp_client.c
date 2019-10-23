@@ -127,6 +127,7 @@ int main(int argc, char *argv[])
 
             printf("\n%s\n", file_buffer);
             
+            /* TODO get the file name and path figured out */ 
             bzero(fout_name_temp, BUFFER_SIZE);
             bzero(fout_name, BUFFER_SIZE); 
             strcpy(fout_name_temp, d_fname);

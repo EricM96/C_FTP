@@ -21,7 +21,8 @@ void error(char *msg)
 int main(int argc, char *argv[])
 {
     int sockfd, portno, n, fsize, dir_count = 0;
-    char *d_fname;
+    char *d_fname_temp;
+    char *d_fname; 
     char *s_fsize;
     struct sockaddr_in serv_addr;
     struct hostent *server;
@@ -29,7 +30,6 @@ int main(int argc, char *argv[])
     struct dirent *fname;
     char buffer[BUFFER_SIZE];
     char *file_buffer; 
-    char fout_name_temp[BUFFER_SIZE];
     char fout_name[BUFFER_SIZE];
     FILE *fout; 
 
@@ -106,12 +106,23 @@ int main(int argc, char *argv[])
             s_fsize = strtok(s_fsize, ":"); 
             s_fsize = strtok(NULL, ":");
 
-            d_fname = strtok(d_fname, ":");
-            d_fname = strtok(NULL, ":");
+            d_fname_temp = strtok(d_fname, ":");
+            d_fname_temp = strtok(NULL, ":");
 
             printf("file size: %s\nfile name: %s\n", s_fsize, d_fname);
 
+            // strtok returns a pointer to a space within a buffer.
+            // To prevent the name of the file from being lost with flushing 
+            // the buffer, we need to make a deep copy of the string.
+            d_fname = (char *)calloc(strlen(d_fname_temp), sizeof(char)); 
+            for (int i = 0; i < strlen(d_fname_temp); ++i)
+            { 
+                d_fname[i] = d_fname_temp[i];
+            }
+
             bzero(buffer, BUFFER_SIZE);
+
+            printf("d_fname after flushing buffer: %s\n", d_fname);
             strcpy(buffer, "ready for file");
 
             n = write(sockfd, buffer, strlen(buffer));
@@ -119,7 +130,7 @@ int main(int argc, char *argv[])
                 error("ERROR writing to socket");
 
             fsize = atoi(s_fsize);
-            file_buffer = malloc(fsize + 1);
+            file_buffer = (char *)calloc(fsize, sizeof(char));
 
             n = read(sockfd, file_buffer, MAX_MSG_SIZE);
             if (n < 0)
@@ -128,11 +139,10 @@ int main(int argc, char *argv[])
             printf("\n%s\n", file_buffer);
             
             /* TODO get the file name and path figured out */ 
-            bzero(fout_name_temp, BUFFER_SIZE);
             bzero(fout_name, BUFFER_SIZE); 
-            strcpy(fout_name_temp, d_fname);
-            strcpy(fout_name, "files/");
-            strcat(fout_name, fout_name_temp);
+            strcpy(fout_name, "files//");
+            printf("d_fname: %s\n", d_fname);
+            strcat(fout_name, d_fname);
 
             printf("writing to file: %s\n", d_fname);
 
@@ -143,6 +153,7 @@ int main(int argc, char *argv[])
             fclose(fout); 
             bzero(fout_name, BUFFER_SIZE); 
             free(file_buffer);
+            free(d_fname); 
 
             continue; 
         }

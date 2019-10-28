@@ -19,3 +19,10 @@ Run ```make``` in the project root directory.
 * ```d <num>``` download file from server located an index <num>
 * ```u <num>``` upload file to server located at index <num> 
 * ```bye``` close connection to server 
+
+## Known Bugs
+* Default buffer size for both components is 256 bytes. If any standard communication
+including the contents of a directory exceed this number, a segmentation fault will result.
+* The client cannot accept a ip address, it must be given a host name 
+* The client and server cannot read or write from any directory other than the file
+directories in their respective folders. 

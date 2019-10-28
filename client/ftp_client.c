@@ -8,6 +8,7 @@
 #include <unistd.h>
 #include <strings.h>
 #include <dirent.h>
+#include <stdbool.h>
 
 #define BUFFER_SIZE 256
 #define MAX_MSG_SIZE 255
@@ -20,18 +21,23 @@ void error(char *msg)
 
 int main(int argc, char *argv[])
 {
-    int sockfd, portno, n, fsize, dir_count = 0;
+    int sockfd, portno, n, fsize, findex, dir_count = 0;
     char *d_fname_temp;
     char *d_fname; 
     char *s_fsize;
+    char *s_findex;
     struct sockaddr_in serv_addr;
     struct hostent *server;
     DIR *dir = opendir("./files");
     struct dirent *fname;
     char buffer[BUFFER_SIZE];
+    char s_fsize_u[BUFFER_SIZE];
     char *file_buffer; 
     char fout_name[BUFFER_SIZE];
-    FILE *fout; 
+    char file_name[BUFFER_SIZE];
+    FILE *fout;
+    FILE *fin;
+    bool found_file = false;
 
     if (argc < 3)
     {
@@ -66,6 +72,7 @@ int main(int argc, char *argv[])
         bzero(buffer, BUFFER_SIZE);
         fgets(buffer, MAX_MSG_SIZE, stdin);
 
+        // Code for local ls 
         if (strcmp(buffer, "ls client\n") == 0)
         {
             while ((fname = readdir(dir)) != NULL)
@@ -83,6 +90,15 @@ int main(int argc, char *argv[])
             dir_count = 0;
             rewinddir(dir);
         }
+        // Code for exit command
+        else if (strcmp(buffer, "bye\n") == 0)
+        {
+            n = write(sockfd, buffer, strlen(buffer));
+            if (n < 0)
+                error("ERROR writing to socket");
+            break; 
+        }
+        // Code for download command 
         else if (buffer[0] == 'd')
         {
             n = write(sockfd, buffer, strlen(buffer));
@@ -109,8 +125,6 @@ int main(int argc, char *argv[])
             d_fname_temp = strtok(d_fname, ":");
             d_fname_temp = strtok(NULL, ":");
 
-            printf("file size: %s\nfile name: %s\n", s_fsize, d_fname);
-
             // strtok returns a pointer to a space within a buffer.
             // To prevent the name of the file from being lost with flushing 
             // the buffer, we need to make a deep copy of the string.
@@ -119,43 +133,113 @@ int main(int argc, char *argv[])
             { 
                 d_fname[i] = d_fname_temp[i];
             }
+            fsize = atoi(s_fsize);
 
             bzero(buffer, BUFFER_SIZE);
 
-            printf("d_fname after flushing buffer: %s\n", d_fname);
             strcpy(buffer, "ready for file");
 
             n = write(sockfd, buffer, strlen(buffer));
             if (n < 0)
                 error("ERROR writing to socket");
 
-            fsize = atoi(s_fsize);
             file_buffer = (char *)calloc(fsize, sizeof(char));
 
-            n = read(sockfd, file_buffer, MAX_MSG_SIZE);
+            n = read(sockfd, file_buffer, fsize);
             if (n < 0)
                 error("ERROR reading file from socket");
-
-            printf("\n%s\n", file_buffer);
-            
-            /* TODO get the file name and path figured out */ 
+              
             bzero(fout_name, BUFFER_SIZE); 
             strcpy(fout_name, "files//");
-            printf("d_fname: %s\n", d_fname);
             strcat(fout_name, d_fname);
-
-            printf("writing to file: %s\n", d_fname);
 
             fout = fopen(fout_name, "w"); 
             if (fout) { fputs(file_buffer, fout); }
             else { error("ERROR writing to file"); }
 
             fclose(fout); 
+            bzero(buffer, BUFFER_SIZE);
             bzero(fout_name, BUFFER_SIZE); 
             free(file_buffer);
             free(d_fname); 
 
             continue; 
+        }
+        // Code for upload command
+        else if (buffer[0] == 'u')
+        {
+            // Extract file index from message
+            s_findex = strtok(buffer, " ");
+            s_findex = strtok(NULL, " ");
+            findex = atoi(s_findex);
+
+            bzero(buffer, BUFFER_SIZE);
+
+            // Search for file matching index
+            while ((fname = readdir(dir)) != NULL)
+            {
+                if (strcmp(fname->d_name, ".") != 0 && strcmp(fname->d_name, "..") != 0)
+                {
+                    dir_count++;
+                    if (dir_count == findex)
+                    {
+                        found_file = true;
+                        strcpy(file_name, "files/");
+                        strcat(file_name, fname->d_name);
+
+                        fin = fopen(file_name, "r");
+                        if (fin == NULL)
+                            strcpy(buffer, "ERROR retrieving file");
+
+                        else
+                        {
+                            // Find size of file in bytes
+                            fseek(fin, 0, SEEK_END);
+                            fsize = ftell(fin) + 1;
+                            rewind(fin);
+
+                            sprintf(s_fsize_u, "%d", fsize);
+
+                            strcpy(buffer, "file_size:");
+                            strcat(buffer, s_fsize_u);
+                            strcat(buffer, ",");
+                            strcat(buffer, "file_name:");
+                            strcat(buffer, fname->d_name);
+
+                            // Send client file name and file size
+                            n = write(sockfd, buffer, strlen(buffer));
+                            if (n < 0)
+                                error("ERROR writing to socket");
+
+                            bzero(buffer, BUFFER_SIZE);
+                            n = read(sockfd, buffer, MAX_MSG_SIZE);
+                            if (n < 0)
+                                error("ERROR reading from socket");
+
+                            // If client indicates it is ready for the file
+                            if (strcmp(buffer, "ready for file") == 0)
+                            {
+                                // Realloc file_buffer to be proper size
+                                file_buffer = calloc(fsize, sizeof(char));
+                                n = fread(file_buffer, sizeof(char), fsize, fin);
+                                if (n < 0)
+                                    error("ERROR reading from file");
+                                fclose(fin);
+
+                                // Send file
+                                n = write(sockfd, file_buffer, fsize);
+                                if (n < 0)
+                                    error("ERROR writing file to socket");
+
+                                // Free memory for file_buffer
+                                free(file_buffer);
+                                bzero(buffer, BUFFER_SIZE);
+                            }
+                        }
+                        break;
+                    }
+                }
+            }
         }
         else
         {

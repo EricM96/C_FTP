@@ -24,16 +24,21 @@ void error(char *msg)
 void on_connect(int socket_id)
 {
     int n, findex, fsize, dir_count = 0;
+    char *d_fname_temp;
+    char *d_fname;
+    char *s_fsize_u;
     char buffer[BUFFER_SIZE];
     char sdir_count[5];
     char *s_findex;
     char s_fsize[BUFFER_SIZE];
     char file_name[BUFFER_SIZE];
+    char fout_name[BUFFER_SIZE];
     char *file_buffer; 
     bool found_file = false;
     FILE *fin; 
     DIR *dir = opendir("./files");
     struct dirent *fname;
+    FILE *fout;
 
     while (1)
     {
@@ -41,7 +46,6 @@ void on_connect(int socket_id)
         n = read(socket_id, buffer, MAX_MSG_SIZE);
         if (n < 0)
             error("ERROR reading from socket");
-        
         // Code for ls command
         if (strcmp(buffer, "ls server\n") == 0)
         {
@@ -70,6 +74,69 @@ void on_connect(int socket_id)
             }   
         }
 
+        else if (strcmp(buffer, "bye") == 0)
+        {
+            return; 
+        }
+
+        // Code for upload command
+        else if (buffer[0] == 'f')
+        {
+            s_fsize_u = strtok(buffer, ",");
+            d_fname = strtok(NULL, ",");
+
+            s_fsize_u = strtok(s_fsize_u, ":");
+            s_fsize_u = strtok(NULL, ":");
+
+            d_fname_temp = strtok(d_fname, ":");
+            d_fname_temp = strtok(NULL, ":");
+
+            // strtok returns a pointer to a space within a buffer.
+            // To prevent the name of the file from being lost with flushing
+            // the buffer, we need to make a deep copy of the string.
+            d_fname = (char *)calloc(strlen(d_fname_temp), sizeof(char));
+            for (int i = 0; i < strlen(d_fname_temp); ++i)
+            {
+                d_fname[i] = d_fname_temp[i];
+            }
+            fsize = atoi(s_fsize_u);
+
+            bzero(buffer, BUFFER_SIZE);
+
+            strcpy(buffer, "ready for file");
+
+            n = write(socket_id, buffer, strlen(buffer));
+            if (n < 0)
+                error("ERROR writing to socket");
+
+            file_buffer = (char *)calloc(fsize, sizeof(char));
+
+            n = read(socket_id, file_buffer, fsize);
+            if (n < 0)
+                error("ERROR reading file from socket");
+
+            bzero(fout_name, BUFFER_SIZE);
+            strcpy(fout_name, "files//");
+            strcat(fout_name, d_fname);
+
+            fout = fopen(fout_name, "w");
+            if (fout)
+            {
+                fputs(file_buffer, fout);
+            }
+            else
+            {
+                error("ERROR writing to file");
+            }
+
+            fclose(fout);
+            bzero(buffer, BUFFER_SIZE);
+            bzero(fout_name, BUFFER_SIZE);
+            free(file_buffer);
+            free(d_fname);
+
+            continue;
+        }
         // Code for download command
         else if (buffer[0] == 'd')
         {
@@ -77,8 +144,6 @@ void on_connect(int socket_id)
             s_findex = strtok(buffer, " "); 
             s_findex = strtok(NULL, " ");
             findex = atoi(s_findex);
-
-            printf("Looking for file: %d\n", findex);
 
             bzero(buffer, BUFFER_SIZE);
 
@@ -104,8 +169,6 @@ void on_connect(int socket_id)
                             fseek(fin, 0, SEEK_END);
                             fsize = ftell(fin) + 1;
                             rewind(fin); 
-                        
-                            printf("File size %d\n", fsize);
                             sprintf(s_fsize, "%d", fsize);
 
                             strcpy(buffer, "file_size:");
@@ -135,13 +198,13 @@ void on_connect(int socket_id)
                                 fclose(fin); 
 
                                 // Send file 
-                                printf("About to upload file\n");
                                 n = write(socket_id, file_buffer, fsize);
                                 if (n < 0)
                                     error("ERROR writing file to socket");
 
                                 // Free memory for file_buffer
                                 free(file_buffer);
+                                bzero(buffer, BUFFER_SIZE);
                             }
                         }
                         break;
@@ -159,11 +222,7 @@ void on_connect(int socket_id)
             }
             
 
-        } else
-        {
-            printf("First char: %c\n", buffer[0]);
-        }
-        printf("Sending message: %s\n", buffer);
+        } 
         n = write(socket_id, buffer, strlen(buffer));
         if (n < 0)
             error("ERROR writing to socket");
@@ -176,7 +235,7 @@ void on_connect(int socket_id)
 int main(int argc, char *argv[])
 {
     int sockfd, newsockfd, pid;
-    const int portno = 12000;
+    const int portno = (argc <= 1) ? 12000 : atoi(argv[1]);
     socklen_t clilen; 
     struct sockaddr_in serv_addr, cli_addr;
 
@@ -206,7 +265,6 @@ int main(int argc, char *argv[])
             error("ERROR on fork");
         if (pid == 0)
         {
-            printf("pid: %i\n", pid); 
             close(sockfd);
             on_connect(newsockfd);
             exit(0);

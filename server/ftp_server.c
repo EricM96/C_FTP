@@ -1,5 +1,12 @@
-/* A simple server in the internet domain using TCP 
-   takes the port number as an argument */
+//********************************************************************
+//
+// Eric McCullough
+// Computer Networks
+// Homework 3: FTP server and client
+// October 28, 2019
+// Instructor: Dr. Ajay K. Katangur
+//
+//********************************************************************
 #include <stdio.h>
 #include <stdlib.h>
 #include<string.h>
@@ -15,12 +22,66 @@
 #define MAX_MSG_SIZE 255
 #define NUM_CONNECTIONS 5
 
+//********************************************************************
+//
+// error function
+// --------------
+// This function displays errors to the user when encountered and
+// gracefully shuts down the program
+//
+// Return Value
+// ------------
+// None
+//
+// Value paramaters
+// ----------------
+// msg          string      The error message to be displayed
+//
+//********************************************************************
 void error(char *msg)
 {
     perror(msg);
     exit(1);
 }
 
+//********************************************************************
+// 
+// On Connect Function
+// -------------------
+// Function that handels a socket connection for a single socket
+// 
+// Value Paramaters
+// ----------------
+// socket_id    int     file descriptor for socket connected to client 
+//
+// Local Variables 
+// ---------------
+// n            int     the number of characters written/read to/from a socket
+// findex       int         the index of the file to be uploaded/downloaded
+// fsize        int         the size of the file in bytes to be uploaded/downloaded
+// dir_count    int         iterator tracker for finding a file marked by findex 
+//
+// d_fname_temp string      temporary string to hold the name of the file to be uploaded/downloaded
+// d_fname      string      permanent copy of d_fname_temp
+// s_fsize_u    string      buffer to hold uploaded file size
+// s_findex     string      string represenation of findex
+// file_buffer  string      resizable buffer for downloaded/uploaded file 
+//
+// buffer       character array     buffer for standard communication with server
+// s_fsize      character array     buffer to hold uploaded file size
+// fout_name    character array     buffer for file output name (including directory)
+// file_name    character array     buffer for file output name (only file) 
+// sdir_count   character array     string representation for dir_count
+// 
+// dir          DIR pointer         directory for files
+// fname        dirent pointer      an entry in dir
+// 
+// fout         file pointer        file output
+// fin          file pointer        file input 
+//
+// found_file   bool                flag to see if file was found or not
+//
+//********************************************************************
 void on_connect(int socket_id)
 {
     int n, findex, fsize, dir_count = 0;
@@ -232,6 +293,28 @@ void on_connect(int socket_id)
     }
 }
 
+//********************************************************************
+//
+// Main Function
+// -------------
+// Main function for server. Accepts new socket connections from clients and 
+// forks subproccesses to handle those connections.
+//
+// Value Paramaters
+// ----------------
+// argc         int             the number of command line arguments (should be 1 or 2)
+// argv         string array    the command line arguments (port number optional)
+// 
+// Local Variables
+// ---------------
+// sockfd       int             the file descriptor for the host socket
+// portno       int             port number for the server
+// 
+// clilen       socklen_t       size of client address
+// serv_addr    sockaddr_in     socket address for server
+// cli_addr     sockaddr_in     socket address for client 
+//
+//********************************************************************
 int main(int argc, char *argv[])
 {
     int sockfd, newsockfd, pid;

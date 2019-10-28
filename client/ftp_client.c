@@ -1,3 +1,12 @@
+//********************************************************************
+//
+// Eric McCullough
+// Computer Networks
+// Homework 3: FTP server and client 
+// October 28, 2019
+// Instructor: Dr. Ajay K. Katangur
+//
+//********************************************************************
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -13,12 +22,75 @@
 #define BUFFER_SIZE 256
 #define MAX_MSG_SIZE 255
 
+//********************************************************************
+//
+// error function
+// --------------
+// This function displays errors to the user when encountered and 
+// gracefully shuts down the program
+//
+// Return Value
+// ------------
+// None
+//
+// Value paramaters
+// ----------------
+// msg          string      The error message to be displayed
+// 
+//********************************************************************
 void error(char *msg)
 {
     perror(msg);
     exit(0);
 }
 
+//********************************************************************
+//
+// Main Function
+// -------------
+// This function handles the main execution loop of the ftp client 
+//
+// Return Value
+// ------------
+// 0 if sucess other if not 
+//
+// Value paramaters
+// ----------------
+// argc         int         the number of command line arguments (should be 3)
+// argv         string array    the command line arguments (hostname and port of server)
+//
+// Local Variables
+// ---------------
+// sockfd       int         the file descriptor for the host socket
+// portno       int         port number for the server
+// n            int         the number of characters written/read to/from a socket
+// fsize        int         the size of the file in bytes to be uploaded/downloaded
+// findex       int         the index of the file to be uploaded/downloaded
+// dircount     int         iterator tracker for finding a file marked by findex 
+//
+// d_fname_temp string      temporary string to hold the name of the file to be uploaded/downloaded
+// d_fname      string      permanent copy of d_fname_temp
+// s_fsize      string      string representation of download file size 
+// s_findex     string      string represenation of findex
+// file_buffer  string      resizable buffer for downloaded/uploaded file 
+// 
+// s_fsize_u    character array     buffer to hold uploaded file size
+// buffer       character array     buffer for standard communication with server
+// fout_name    character array     buffer for file output name (including directory)
+// file_name    character array     buffer for file output name (only file) 
+// 
+// serv_addr    sockaddr_in         socket address structure for server
+// server       hostent pointer     Host entry for server
+// 
+// dir          DIR pointer         directory for files
+// fname        dirent pointer      an entry in dir
+// 
+// fout         file pointer        file output
+// fin          file pointer        file input 
+//
+// found_file   bool                flag to see if file was found or not
+// 
+//********************************************************************
 int main(int argc, char *argv[])
 {
     int sockfd, portno, n, fsize, findex, dir_count = 0;
